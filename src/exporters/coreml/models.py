@@ -450,6 +450,17 @@ class RoFormerCoreMLConfig(CoreMLConfig):
     modality = "text"
 
 
+class SeamlessM4TCoreMLConfig(CoreMLConfig):
+    modality = "audio"
+
+
+class SeamlessText2TextCoreMLConfig(CoreMLConfig):
+    modality = "text"
+    seq2seq = "encdec"
+    # do some stuff where we specify tgt_language which generates good `decoder_input_ids` which then get passed to the forward
+    # function during the conversion step
+
+
 class SegformerCoreMLConfig(CoreMLConfig):
     modality = "vision"
 

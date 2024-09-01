@@ -148,6 +148,14 @@ def get_input_types(
         else:
             logger.info(f"Skipping {attention_mask_name} input")
 
+        if config.seq2seq == "encdec":
+            decoder_input_ids_name = "decoder_input_ids"
+            input_desc = input_descs[decoder_input_ids_name]
+            print(f"input_desc: {input_desc}")
+            d_shape = get_shape(config, input_desc, dummy_inputs[decoder_input_ids_name])
+            input_types.append(
+                ct.TensorType(name=input_desc.name, shape=d_shape, dtype=np.int32)
+            )
         if "token_type_ids" in input_descs:
             input_desc = input_descs["token_type_ids"]
             input_types.append(
@@ -159,7 +167,7 @@ def get_input_types(
         if "encoder_outputs" in input_descs:
             input_desc = input_descs["encoder_outputs"]
             shape = list(dummy_inputs["encoder_outputs"][0].shape)
-            #shape[0] = ct.RangeDim()  # batch size  #TODO
+            # shape[0] = ct.RangeDim()  # batch size  #TODO
             # TODO: only disable if we are using fixed shapes (which could be part of the configuration)
             # shape[1] = ct.RangeDim()
             input_types.append(
@@ -191,7 +199,7 @@ def get_input_types(
             # name = "decoder_past_key_values" if config.seq2seq == "decoder" else "past_key_values"
             name = "past_key_values"
             shape = list(dummy_inputs[f"{name}_0_key"][1].shape)
-            #shape[0] = ct.RangeDim()  # batch size  #TODO
+            # shape[0] = ct.RangeDim()  # batch size  #TODO
             shape[2] = ct.RangeDim(0, -1)
             shape = ct.Shape(shape)
 
@@ -210,7 +218,6 @@ def get_input_types(
             #     for i in range(config.num_encoder_layers):
             #         input_types.append(ct.TensorType(name=f"{name}_{i}_key", shape=shape))
             #         input_types.append(ct.TensorType(name=f"{name}_{i}_value", shape=shape))
-
 
     elif config.modality == "vision":
         if hasattr(preprocessor, "image_mean"):
@@ -274,7 +281,7 @@ def get_input_types(
             input_desc = input_descs["attention_mask"]
             attn_shape = list(dummy_inputs["attention_mask"][0].shape)
             if isinstance(shape.shape[1], ct.RangeDim):
-                #attn_shape[0] = shape.shape[0]  # batch size  #TODO
+                # attn_shape[0] = shape.shape[0]  # batch size  #TODO
                 attn_shape[-1] = shape.shape[1]
 
             input_types.append(
@@ -352,6 +359,9 @@ if is_torch_available():
                 model_kwargs["encoder_outputs"] = (all_inputs[2],)
                 if remaining >= 4:
                     model_kwargs["attention_mask"] = all_inputs[3]
+            elif self.config.seq2seq == "encdec":
+                if remaining == 3:
+                    model_kwargs["decoder_input_ids"] = all_inputs[2]
             elif self.config.modality == "text":
                 if remaining >= 2:
                     model_kwargs["attention_mask"] = all_inputs[1]
@@ -496,7 +506,7 @@ def export_pytorch(
         raise ValueError(f"Cannot convert unknown model type: {type(model)}")
 
     logger.info(f"Using framework PyTorch: {torch.__version__}")
-
+    print(f"config seq2seq: {config.seq2seq}, task: {config.task}")
     # Check if we need to override certain configuration items
     if config.values_override is not None:
         logger.info(f"Overriding {len(config.values_override)} configuration item(s)")
@@ -506,9 +516,13 @@ def export_pytorch(
 
     # Create dummy input data for doing the JIT trace.
     dummy_inputs = config.generate_dummy_inputs(preprocessor, framework=TensorType.PYTORCH)
+    print(f"dummy inputs: {dummy_inputs}")
 
     # Put the inputs in the order from the config.
+    print(f"keys list: {list(config.inputs.keys())}")
     example_input = [dummy_inputs[key][0] for key in list(config.inputs.keys())]
+    print(f"example input: {example_input}")
+    # example_input['tgt_lang'] = "hin"
 
     wrapper = Wrapper(preprocessor, model, config).eval()
 
@@ -516,7 +530,8 @@ def export_pytorch(
     # that happens with certain models such as LeViT. The error message is: "Cannot insert
     # a Tensor that requires grad as a constant."
     with torch.no_grad():
-        dummy_output = wrapper(*example_input)
+        # dummy_output = wrapper(*example_input)
+        pass
 
     traced_model = torch.jit.trace(wrapper, example_input, strict=True)
 
@@ -524,6 +539,7 @@ def export_pytorch(
     with torch.no_grad():
         example_output = traced_model(*example_input)
 
+    print(f"example output: {example_output}")
     if isinstance(example_output, (tuple, list)):
         example_output = [x.numpy() for x in example_output]
     else:
@@ -539,6 +555,8 @@ def export_pytorch(
         convert_kwargs['classifier_config'] = ct.ClassifierConfig(config.get_class_labels())
 
     input_tensors = get_input_types(preprocessor, config, dummy_inputs)
+
+    print(f"input tensors: {input_tensors}")
 
     patched_ops = config.patch_pytorch_ops()
     restore_ops = {}

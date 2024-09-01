@@ -158,7 +158,7 @@ class FeaturesManager:
             "feature-extraction",
             "image-classification",
             "semantic-segmentation",
-            coreml_config_cls="models.beit.BeitCoreMLConfig"
+            coreml_config_cls="models.beit.BeitCoreMLConfig",
         ),
         "bert": supported_features_mapping(
             "feature-extraction",
@@ -244,9 +244,9 @@ class FeaturesManager:
         ),
         "gpt2": supported_features_mapping(
             "feature-extraction",
-            #"feature-extraction-with-past",
+            # "feature-extraction-with-past",
             "text-generation",
-            #"text-generation-with-past",
+            # "text-generation-with-past",
             "text-classification",
             "token-classification",
             coreml_config_cls="models.gpt2.GPT2CoreMLConfig",
@@ -264,22 +264,24 @@ class FeaturesManager:
         ),
         "gpt_neo": supported_features_mapping(
             "feature-extraction",
-            #"feature-extraction-with-past",
+            # "feature-extraction-with-past",
             "text-generation",
-            #"text-generation-with-past",
+            # "text-generation-with-past",
             "text-classification",
             coreml_config_cls="models.gpt_neo.GPTNeoCoreMLConfig",
         ),
         "gpt_neox": supported_features_mapping(
             "feature-extraction",
-            #"feature-extraction-with-past",
+            # "feature-extraction-with-past",
             "text-generation",
-            #"text-generation-with-past",
+            # "text-generation-with-past",
             "text-classification",
             coreml_config_cls="models.gpt_neox.GPTNeoXCoreMLConfig",
         ),
         "levit": supported_features_mapping(
-            "feature-extraction", "image-classification", coreml_config_cls="models.levit.LevitCoreMLConfig"
+            "feature-extraction",
+            "image-classification",
+            coreml_config_cls="models.levit.LevitCoreMLConfig",
         ),
         "llama": supported_features_mapping(
             "feature-extraction",
@@ -350,6 +352,18 @@ class FeaturesManager:
             "text-generation-with-past",
             coreml_config_cls="models.roformer.RoFormerCoreMLConfig",
         ),
+        "seamless_m4t_v2": supported_features_mapping(
+            "feature-extraction",
+            "automatic-speech-recognition",
+            "text2text-generation",
+            "speech-seq2seq",
+            coreml_config_cls="models.seamless_m4t_v2_large.SeamlessM4TCoreMLConfig",
+        ),
+        "seamless_text2text": supported_features_mapping(
+            "feature-extraction",
+            "text2text-generation",
+            coreml_config_cls="models.seamless_text2text.SeamlessText2TextCoreMLConfig",
+        ),
         "segformer": supported_features_mapping(
             "feature-extraction",
             "image-classification",
@@ -376,7 +390,10 @@ class FeaturesManager:
             coreml_config_cls="models.t5.T5CoreMLConfig",
         ),
         "vit": supported_features_mapping(
-            "feature-extraction", "image-classification", "masked-im", coreml_config_cls="models.vit.ViTCoreMLConfig"
+            "feature-extraction",
+            "image-classification",
+            "masked-im",
+            coreml_config_cls="models.vit.ViTCoreMLConfig",
         ),
         "yolos": supported_features_mapping(
             "feature-extraction",

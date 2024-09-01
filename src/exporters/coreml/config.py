@@ -24,6 +24,7 @@ from transformers.utils import (
     is_torch_available,
     is_vision_available,
 )
+from transformers.models.seamless_m4t.tokenization_seamless_m4t_fast import SeamlessM4TTokenizerFast
 from ..utils import logging
 
 
@@ -217,9 +218,10 @@ class CoreMLConfig():
         """
         return (1, self.max_sequence_length) if self.use_flexible_shapes else self.max_sequence_length
 
-
     @property
     def _input_descriptions(self) -> "OrderedDict[str, InputDescription]":
+        print(f"top of _input_descriptions")
+        print(f"modality: {self.modality}, task: {self.task}, seq2seq: {self.seq2seq}")
         if self.modality in ["text", "audio"] and self.seq2seq == "decoder":
             return OrderedDict(
                 [
@@ -250,6 +252,48 @@ class CoreMLConfig():
                             "encoder_attention_mask",
                             "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
                         )
+                    ),
+                ]
+            )
+
+        if (
+            self.modality == "text"
+            and self.seq2seq == "encdec"
+            and self.task
+            in [
+                "feature-extraction",
+                "text-generation",
+                "fill-mask",
+                "question-answering",
+                "text-classification",
+                "text2text-generation",
+                "token-classification",
+            ]
+        ):
+            print(f"text, encdec, task: {self.task}")
+            return OrderedDict(
+                [
+                    (
+                        "input_ids",
+                        InputDescription(
+                            "input_ids",
+                            "Indices of input sequence tokens in the vocabulary",
+                            sequence_length=self.input_ids_sequence_length,
+                        ),
+                    ),
+                    (
+                        "attention_mask",
+                        InputDescription(
+                            "attention_mask",
+                            "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
+                        ),
+                    ),
+                    (
+                        "decoder_input_ids",
+                        InputDescription(
+                            "decoder_input_ids",
+                            "Indices of decoder input sequence tokens in the vocabulary",
+                        ),
                     ),
                 ]
             )
@@ -580,7 +624,7 @@ class CoreMLConfig():
 
         if self.use_past:
             # TODO: Temporarily disabled until we can solve the issue with encoder past key/values
-            #name = "decoder_present" if self.seq2seq == "decoder" else "present"
+            # name = "decoder_present" if self.seq2seq == "decoder" else "present"
             name = "present"
             for i in range(self.num_layers):
                 output_shapes[f"{name}_{i}_key"] = [
@@ -667,7 +711,7 @@ class CoreMLConfig():
 
     def fill_inputs_with_past_key_values_(self, inputs: "OrderedDict[str, InputDescription]"):
         # TODO: Temporarily disabled until we can solve the issue with encoder past key/values
-        #name = "decoder_past_key_values" if self.seq2seq == "decoder" else "past_key_values"
+        # name = "decoder_past_key_values" if self.seq2seq == "decoder" else "past_key_values"
         name = "past_key_values"
         for i in range(self.num_layers):
             inputs[f"{name}_{i}_key"] = InputDescription(f"{name}_{i}_key", is_optional=True)
@@ -919,6 +963,12 @@ class CoreMLConfig():
                 decoder_attention_mask = np.ones(decoder_shape, dtype=np.int64)
                 dummy_inputs["decoder_attention_mask"] = (decoder_attention_mask, decoder_attention_mask.astype(np.int32))
 
+            if self.seq2seq == "encdec" and self.task == "text2text-generation":
+                print(f"SeamLess Specific: Generating dumme decoder_input_ids for text2text-translation")
+                lang_code_id = 256033 # hindi
+                dec_input_ids = np.asarray([[lang_code_id]] * batch_size)
+                dummy_inputs["decoder_input_ids"] = (dec_input_ids, dec_input_ids.astype(np.int32))
+
         elif (
             self.modality == "vision"
             and isinstance(preprocessor, ImageProcessingMixin)
@@ -1025,7 +1075,7 @@ class CoreMLConfig():
             #         dummy_inputs[f"{name}_{i}_value"] = (
             #             np.zeros(shape, dtype=np.float32), np.zeros(shape, dtype=np.float32)
             #         )
-
+        # print(f"dummy inputs at end of generate_dummy_inputs: {dummy_inputs}")
         return self._convert_dummy_inputs_to_framework(dummy_inputs, framework)
 
     def _convert_dummy_inputs_to_framework(self, dummy_inputs, framework):
@@ -1049,7 +1099,7 @@ class CoreMLConfig():
                 description
             )
         return output_descs
-    
+
     @property
     def short_description(self) -> str:
         """
